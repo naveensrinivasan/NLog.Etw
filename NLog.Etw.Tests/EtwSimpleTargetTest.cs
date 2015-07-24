@@ -56,23 +56,27 @@ namespace NLog.Etw.Tests
             
             var fpath = Path.Combine(Path.GetTempPath(), "_etwnlogtest.etl");
 
-
             var collectedEvents = new List<SimpleEtwEvent>(5);
-            using (var source = new ETWTraceEventSource(fpath))
-            {
-                source.UnhandledEvents += delegate(TraceEvent data)
-                {
-                    collectedEvents.Add(new SimpleEtwEvent { Level = data.Level, Message = data.FormattedMessage });
-                    if (collectedEvents.Count == 5)
-                    {
-                        resetEvent.Set();
-                    }
-                };
-                source.Process();
-            }
+
 
             using (var session = new TraceEventSession("SimpleMonitorSession", fpath)) {
                 session.EnableProvider(providerId);
+
+
+           
+                using (var source = new ETWTraceEventSource(fpath))
+                {
+
+                    source.UnhandledEvents += delegate(TraceEvent data)
+                    {
+                        collectedEvents.Add(new SimpleEtwEvent { Level = data.Level, Message = data.FormattedMessage });
+                        if (collectedEvents.Count == 5)
+                        {
+                            resetEvent.Set();
+                        }
+                    };
+                    source.Process();
+                }
 
                 // send events to session
                 var logger = LogManager.GetLogger("A");
