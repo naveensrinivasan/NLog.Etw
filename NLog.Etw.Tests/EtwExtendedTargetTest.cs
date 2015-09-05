@@ -1,13 +1,9 @@
 ﻿using Microsoft.Diagnostics.Tracing;
-using Microsoft.Diagnostics.Tracing.Parsers;
 using Microsoft.Diagnostics.Tracing.Session;
 using NLog.Config;
 using NLog.Layouts;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
 using Xunit;
 
 namespace NLog.Etw.Tests
@@ -55,13 +51,25 @@ namespace NLog.Etw.Tests
 
         [Fact]
         public void Writing_Message_To_Etw() {
-            var fpath = Path.Combine(Path.GetTempPath(), "_etwnlogtest.etl");
-            using (var session = new TraceEventSession("SimpleMonitorSession", fpath)) {
-                //var eventSourceGuid = TraceEventProviders.GetEventSourceGuidFromName("MyEventSource");
+            var collectedEvents = new List<ExtendedEtwEvent>(5);
+            using (var session = new TraceEventSession("SimpleMonitorSession")) {
                 var eventSourceGuid = TraceEventProviders.GetEventSourceGuidFromName("LowLevelDesign-NLogEtwSource");
+
+                session.Source.Dynamic.All += ((data) =>
+                {
+                    collectedEvents.Add(new ExtendedEtwEvent {
+                        EventId = (int)data.ID,
+                        Level = data.Level,
+                        LoggerName = (String)data.PayloadByName("LoggerName"),
+                        Message = (String)data.PayloadByName("Message")
+                    });
+                    if (collectedEvents.Count >= 5) {
+                        session.Stop();
+                    }
+                });
+
                 session.EnableProvider(eventSourceGuid);
 
-                // send events to session
                 var logger = LogManager.GetLogger("A");
                 logger.Debug("test-debug");
                 logger.Info("test-info");
@@ -69,23 +77,8 @@ namespace NLog.Etw.Tests
                 logger.Error("test-error");
                 logger.Fatal("test-fatal");
 
-                Thread.Sleep(5000);
+                session.Source.Process();
             }
-
-            var collectedEvents = new List<ExtendedEtwEvent>(5);
-            using (var source = new ETWTraceEventSource(fpath)) {
-                var parser = new DynamicTraceEventParser(source);
-                parser.All += delegate(TraceEvent data) {
-                    collectedEvents.Add(new ExtendedEtwEvent {
-                        EventId = (int)data.ID,
-                        Level = data.Level,
-                        LoggerName = (String)data.PayloadByName("LoggerName"),
-                        Message = (String)data.PayloadByName("Message")
-                    });
-                };
-                source.Process();
-            }
-            File.Delete(fpath);
 
             // assert collected events
             var expectedEvents = new ExtendedEtwEvent[] {
@@ -98,5 +91,4 @@ namespace NLog.Etw.Tests
             Assert.Equal(collectedEvents, expectedEvents);
         }
     }
-}
-
+} 
