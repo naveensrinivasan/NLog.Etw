@@ -196,3 +196,6 @@ FakesAssemblies/
 
 # Visual Studio 6 workspace options file
 *.opt
+NLog.Etw.Tests/TraceEvent.ReadMe.txt
+NLog.Etw.Tests/TraceEvent.ReleaseNotes.txt
+NLog.Etw.Tests/_TraceEventProgrammersGuide.docx
