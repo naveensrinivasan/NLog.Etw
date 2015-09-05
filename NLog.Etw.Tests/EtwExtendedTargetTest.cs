@@ -1,9 +1,11 @@
 ﻿using Microsoft.Diagnostics.Tracing;
+using Microsoft.Diagnostics.Tracing.Parsers;
 using Microsoft.Diagnostics.Tracing.Session;
 using NLog.Config;
 using NLog.Layouts;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace NLog.Etw.Tests
@@ -52,10 +54,11 @@ namespace NLog.Etw.Tests
         [Fact]
         public void Writing_Message_To_Etw() {
             var collectedEvents = new List<ExtendedEtwEvent>(5);
-            using (var session = new TraceEventSession("SimpleMonitorSession")) {
-                var eventSourceGuid = TraceEventProviders.GetEventSourceGuidFromName("LowLevelDesign-NLogEtwSource");
-
-                session.Source.Dynamic.All += ((data) =>
+            var session = new TraceEventSession("SimpleMonitorSession");
+            var eventSourceGuid = TraceEventProviders.GetEventSourceGuidFromName("LowLevelDesign-NLogEtwSource");
+            Task.Run(() => {
+                var parser = new DynamicTraceEventParser(session.Source);
+                parser.All += (data) =>
                 {
                     collectedEvents.Add(new ExtendedEtwEvent {
                         EventId = (int)data.ID,
@@ -66,19 +69,20 @@ namespace NLog.Etw.Tests
                     if (collectedEvents.Count >= 5) {
                         session.Stop();
                     }
-                });
+                };
+            });
 
-                session.EnableProvider(eventSourceGuid);
+            session.EnableProvider(eventSourceGuid);
 
-                var logger = LogManager.GetLogger("A");
-                logger.Debug("test-debug");
-                logger.Info("test-info");
-                logger.Warn("test-warn");
-                logger.Error("test-error");
-                logger.Fatal("test-fatal");
+            var logger = LogManager.GetLogger("A");
+            logger.Debug("test-debug");
+            logger.Info("test-info");
+            logger.Warn("test-warn");
+            logger.Error("test-error");
+            logger.Fatal("test-fatal");
 
-                session.Source.Process();
-            }
+            session.Source.Process();
+            session.Stop();
 
             // assert collected events
             var expectedEvents = new ExtendedEtwEvent[] {
