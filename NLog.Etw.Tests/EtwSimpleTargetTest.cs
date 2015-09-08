@@ -53,10 +53,15 @@ namespace NLog.Etw.Tests
         public void Writing_Message_To_Etw()
         {
             var resetEvent = new ManualResetEvent(false);
+            
             var fpath = Path.Combine(Path.GetTempPath(), "_etwnlogtest.etl");
+
+         
+
             using (var session = new TraceEventSession("SimpleMonitorSession", fpath)) {
                 session.EnableProvider(providerId);
 
+                
                 // send events to session
                 var logger = LogManager.GetLogger("A");
                 logger.Debug("test-debug");
@@ -64,20 +69,25 @@ namespace NLog.Etw.Tests
                 logger.Warn("test-warn");
                 logger.Error("test-error");
                 logger.Fatal("test-fatal");
+
+                Thread.Sleep(5000);
             }
 
+
             var collectedEvents = new List<SimpleEtwEvent>(5);
-            using (var source = new ETWTraceEventSource(fpath)) {
-                source.UnhandledEvents += delegate(TraceEvent data) {
-                                                                        collectedEvents.Add(new SimpleEtwEvent { Level = data.Level, Message = data.FormattedMessage });
-                                                                        if (collectedEvents.Count == 5)
-                                                                        {
-                                                                            resetEvent.Set();
-                                                                        }
+            using (var source = new ETWTraceEventSource(fpath))
+            {
+
+                source.UnhandledEvents += delegate(TraceEvent data)
+                {
+                    collectedEvents.Add(new SimpleEtwEvent { Level = data.Level, Message = data.FormattedMessage });
+                    if (collectedEvents.Count == 5)
+                    {
+                        resetEvent.Set();
+                    }
                 };
                 source.Process();
             }
-            File.Delete(fpath);
 
             // assert collected events
             var expectedEvents = new SimpleEtwEvent[] {
@@ -88,6 +98,7 @@ namespace NLog.Etw.Tests
                 new SimpleEtwEvent { Level = TraceEventLevel.Critical, Message = "FATAL|A|test-fatal" }
             };
             resetEvent.WaitOne(20000);
+            File.Delete(fpath);
             Assert.Equal(expectedEvents.Length, collectedEvents.Count);
             Assert.Equal(expectedEvents, collectedEvents);
         }
