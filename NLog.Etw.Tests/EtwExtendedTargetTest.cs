@@ -51,7 +51,6 @@ namespace NLog.Etw.Tests
             LogManager.Configuration = loggingConfiguration;
         }
 
-        [Fact]
         public void Writing_Message_To_Etw() {
             var collectedEvents = new List<ExtendedEtwEvent>(5);
             var session = new TraceEventSession("SimpleMonitorSession");
